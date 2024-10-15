@@ -8,10 +8,17 @@ if (!isset($_SESSION['name'])) {
     exit();
 }
 
+$user_id = $_SESSION['id'];
+
 $status = isset($_GET['status']) ? $_GET['status'] : '';
 
-$sql = "SELECT * FROM orders"; 
-$result = mysqli_query($conn, $sql);
+if (isset($_SESSION['name']) && $_SESSION['name'] === 'admin') {
+    $sql = "SELECT * FROM orders";
+} else {
+    $sql = "SELECT * FROM orders WHERE user_id = $user_id";
+}
+
+$result = mysqli_query($conn,  $sql);
 
 if (!$result) {
     die("Query Error: " . mysqli_error($conn));
@@ -27,11 +34,25 @@ if (!$result) {
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
+<style>
+    .btn {
+        display: flex;
+    }
+</style>
 <body>
     <h2>Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?></h2>
-    <form method="POST" action="../logout.php">
-        <button type="submit">Logout</button>
-    </form>
+    <div class="btn">
+        <form method="POST" action="../logout.php" style="margin-right: 2%;">
+            <button type="submit">Logout</button>
+        </form>
+        <?php 
+        if (isset($_SESSION['name']) && $_SESSION['name'] !== 'admin') {
+            ?>
+            <a href="../../order.php"><button>Back</button></a>
+            <?php
+        }
+        ?>
+    </div>
     
     <table>
         <thead>
@@ -45,42 +66,57 @@ if (!$result) {
                 <th>Order Date</th>
                 <th>Note</th>
                 <th>Status</th>
+                <th>Photo</th>
                 <th>Actions</th>
             </tr>
         </thead>
 
         <tbody>
-            <?php
-                while ($row = mysqli_fetch_assoc($result)) {
-                    $note = $row['note'] ? htmlspecialchars($row['note']) : "no notes given";
-                    echo "<tr>
-                            <td>" . htmlspecialchars($row['id']) . "</td>
-                            <td>" . htmlspecialchars($row['fullname']) . "</td>
-                            <td>" . htmlspecialchars($row['phone_number']) . "</td>
-                            <td>" . htmlspecialchars($row['address']) . "</td>
-                            <td>" . htmlspecialchars($row['service']) . "</td>
-                            <td>" . htmlspecialchars($row['weight']) . "</td>
-                            <td>" . htmlspecialchars($row['order_date']) . "</td>
-                            <td>" . $note . "</td>
-                            <td>" . htmlspecialchars($row['status']) . "</td>
-                            <td>
-                                <a href='javascript:void(0);' class='edit' 
-                                onclick=\"openModal(
-                                    " . htmlspecialchars($row['id']) . ",
-                                    '" . htmlspecialchars($row['fullname']) . "',
-                                    '" . htmlspecialchars($row['phone_number']) . "',
-                                    '" . htmlspecialchars($row['address']) . "',
-                                    '" . htmlspecialchars($row['service']) . "',
-                                    '" . htmlspecialchars($row['weight']) . "',
-                                    '" . htmlspecialchars($row['order_date']) . "',
-                                    '" . addslashes($note) . "',
-                                    '" . htmlspecialchars($row['status']) . "'
-                                )\"><i class='fas fa-edit'></i></a>
-                                <a href='../delete/delete-order-function.php?id=" . htmlspecialchars($row['id']) . "' class='delete' onclick='return confirm(\"Are you sure you want to delete this order?\");'><i class='fas fa-trash'></i></a>
-                            </td>
-                        </tr>";
+        <?php
+            $isAdmin = ($_SESSION['name'] === 'admin') ? 'true' : 'false';
+
+            while ($row = mysqli_fetch_assoc($result)) {
+                $note = !empty($row['note']) ? htmlspecialchars($row['note']) : "No notes given";
+                $photo = !empty($row['foto']) ? "../../assets/img_laundry/" . htmlspecialchars($row['foto']) : "No photo";
+
+                echo "<tr>
+                        <td>" . htmlspecialchars($row['id']) . "</td>
+                        <td>" . htmlspecialchars($row['fullname']) . "</td>
+                        <td>" . htmlspecialchars($row['phone_number']) . "</td>
+                        <td>" . htmlspecialchars($row['address']) . "</td>
+                        <td>" . htmlspecialchars($row['service']) . "</td>
+                        <td>" . htmlspecialchars($row['weight']) . " kg</td>
+                        <td>" . htmlspecialchars($row['order_date']) . "</td>
+                        <td>" . $note . "</td>
+                        <td>" . htmlspecialchars($row['status']) . "</td>
+                        <td>";
+
+                if ($photo !== "No photo") {
+                    echo "<img src='$photo' alt='Order Photo' style='width: 120px; height: 100px; object-fit: cover;' onclick=\"openImageModal('$photo', '" . addslashes(htmlspecialchars($row['fullname'])) . "')\">";
+                } else {
+                    echo $photo;
                 }
-            ?>
+
+                echo "</td>
+                        <td>
+                            <a href='javascript:void(0);' class='edit' 
+                            onclick=\"openModal(
+                                " . htmlspecialchars($row['id']) . ",
+                                '" . addslashes(htmlspecialchars($row['fullname'])) . "',
+                                '" . addslashes(htmlspecialchars($row['phone_number'])) . "',
+                                '" . addslashes(htmlspecialchars($row['address'])) . "',
+                                '" . addslashes(htmlspecialchars($row['service'])) . "',
+                                '" . addslashes(htmlspecialchars($row['weight'])) . "',
+                                '" . addslashes(htmlspecialchars($row['order_date'])) . "',
+                                '" . addslashes($note) . "',
+                                '" . addslashes(htmlspecialchars($row['status'])) . "',
+                                $isAdmin
+                            )\"><i class='fas fa-edit'></i></a>
+                            <a href='../delete/delete-order-function.php?id=" . htmlspecialchars($row['id']) . "' class='delete' onclick='return confirm(\"Are you sure you want to delete this order?\");'><i class='fas fa-trash'></i></a>
+                        </td>
+                    </tr>";
+            }
+        ?>
         </tbody>
 
     </table>
@@ -89,7 +125,7 @@ if (!$result) {
         <div class="modal-content">
             <span class="close" onclick="closeModal()">&times;</span>
             <h2>Edit Order</h2>
-            <form id="editForm" method="POST" action="../update/update-order-function.php" onsubmit="return confirmSubmit()">
+            <form id="editForm" method="POST" action="../update/update-order-function.php" onsubmit="return confirmSubmit()" enctype="multipart/form-data">
                 <input type="hidden" name="id" id="editId">
                 <div class="form-group">
                     <label for="editName">Full Name:</label>
@@ -135,39 +171,80 @@ if (!$result) {
                         <option value="Canceled">Canceled</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="image">Image</label>
+                    <input type="file" name="photo" id="">
+                </div>
                 <button type="submit">Update Order</button>
             </form>
         </div>
     </div>
-    <a href="read-contact.php">View Incoming Contact Data <i class="fa-solid fa-chevron-right"></i></a>
+
+
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeImageModal()" style="margin-bottom: 1%;">X</span>
+            <img id="modalImage" src="" alt="Order Photo" style="width: 100%; height: auto;"/>
+        </div>
+    </div>
+
+    <?php 
+    if (isset($_SESSION['name']) && $_SESSION['name'] === 'admin') {
+        ?>
+        <a href="read-contact.php">View Incoming Contact Data <i class="fa-solid fa-chevron-right"></i></a>
+        <?php
+    }
+    ?>
 
     <div id="responseModal" class="modal">
         <div class="modal-content" id="responseMessage">
     </div>
 
     <script>
-        function openModal(id, fullname, phone_number, address, service, weight, order_date, note, status) {
+        function openModal(id, fullname, phone, address, service, weight, orderDate, note, status, isAdmin) {
             document.getElementById('editId').value = id;
             document.getElementById('editName').value = fullname;
-            document.getElementById('editPhone').value = phone_number;
+            document.getElementById('editPhone').value = phone;
             document.getElementById('editAddress').value = address;
             document.getElementById('editService').value = service;
             document.getElementById('editWeight').value = weight;
-            document.getElementById('editOrderDate').value = order_date;
+            document.getElementById('editOrderDate').value = orderDate;
             document.getElementById('editNote').value = note;
             document.getElementById('editStatus').value = status;
 
+            const statusField = document.getElementById('editStatus').parentElement;
+            if (isAdmin === true) {
+                statusField.style.display = 'block';
+            } else {
+                statusField.style.display = 'none';
+            }
+
             document.getElementById('editModal').style.display = 'block';
         }
+
 
         function closeModal() {
             document.getElementById('editModal').style.display = 'none';
         }
 
+        function openImageModal(imageSrc, description) {
+            document.getElementById('modalImage').src = imageSrc;
+            document.getElementById('imageModal').style.display = 'block';
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+
         window.onclick = function(event) {
             const modal = document.getElementById('editModal');
+            const imageModal = document.getElementById('imageModal');
             if (event.target === modal) {
                 closeModal();
+            }
+            if (event.target === imageModal) {
+                closeImageModal();
             }
         }
 
@@ -193,6 +270,7 @@ if (!$result) {
 
             return confirm(message);
         }
+        
 
     </script>
 
